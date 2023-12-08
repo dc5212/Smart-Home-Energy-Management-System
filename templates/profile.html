@@ -6,20 +6,33 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile</title>
+    <title>User Profile</title>
 </head>
 <body>
-    <h1>Profile</h1>
-    {% if user %}
-        <p>Welcome, {{ user.username }}!</p>
+    <h1>User Profile</h1>
+    <p>Welcome, {{ user.username }}!</p>
+    <p>Name: {{ user.name }}</p>
+    <p>Billing Address ID: {{ user.billing_address_id }}</p>
+
+    <h2>Service Locations</h2>
+    {% if user.service_locations %}
         <ul>
-            <li>Name: {{ user.name }}</li>
-            <li>Billing Address ID: {{ user.billing_address_id }}</li>
-            <!-- Add other profile details as needed -->
+            {% for service_location in user.service_locations %}
+            <li>
+                {{ service_location.address }} - 
+                <a href="{{ url_for('edit_service_location', location_id=service_location.id) }}">Edit</a>
+                <a href="{{ url_for('remove_service_location', location_id=service_location.id) }}">Remove</a>
+            </li>
+            {% endfor %}
+
         </ul>
-        <a href="{{ url_for('edit_profile') }}">Edit Profile</a>
     {% else %}
-        <p>Please log in to view your profile.</p>
+        <p>No service locations found.</p>
     {% endif %}
+
+    <p><a href="{{ url_for('add_service_location') }}">Add Service Location</a></p>
+    <p><a href="{{ url_for('edit_profile') }}">Edit Profile</a></p>
+    <p><a href="{{ url_for('logout') }}">Logout</a></p>
+    <p><a href="{{ url_for('index') }}">Back to Home</a></p>
 </body>
 </html>
