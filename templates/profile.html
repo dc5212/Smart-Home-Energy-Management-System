@@ -1,0 +1,25 @@
+<!-- Inside templates/profile.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile</title>
+</head>
+<body>
+    <h1>Profile</h1>
+    {% if user %}
+        <p>Welcome, {{ user.username }}!</p>
+        <ul>
+            <li>Name: {{ user.name }}</li>
+            <li>Billing Address ID: {{ user.billing_address_id }}</li>
+            <!-- Add other profile details as needed -->
+        </ul>
+        <a href="{{ url_for('edit_profile') }}">Edit Profile</a>
+    {% else %}
+        <p>Please log in to view your profile.</p>
+    {% endif %}
+</body>
+</html>

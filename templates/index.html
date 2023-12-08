@@ -6,14 +6,19 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Index</title>
+    <title>Home</title>
 </head>
 <body>
-    <h1>Energy Monitoring System</h1>
-    {{ message }}
     {% if current_user %}
-        <p>Welcome, {{ current_user.username }}!</p>
-        <a href="{{ url_for('logout') }}">Logout</a>
+        <h1>Welcome, {{ current_user.username }}!</h1>
+        <p>View your profile: <a href="{{ url_for('profile') }}">Profile</a></p>
+        <p>Edit your profile: <a href="{{ url_for('edit_profile') }}">Edit Profile</a></p>
+        <p><a href="{{ url_for('logout') }}">Logout</a></p>
+    {% else %}
+        <h1>Welcome to the Energy Monitoring System!</h1>
+        <!-- Your existing content goes here -->
+        <p><a href="{{ url_for('register') }}">Register</a></p>
+        <p><a href="{{ url_for('login') }}">Login</a></p>
     {% endif %}
 </body>
 </html>

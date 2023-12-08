@@ -15,8 +15,20 @@
     {% endif %}
     <form method="POST" action="">
         {{ form.csrf_token }}
-        {{ form.username.label }} {{ form.username }}
-        {{ form.password.label }} {{ form.password }}
+        
+        <label for="username">{{ form.username.label }}</label>
+        {{ form.username(class="form-control", placeholder="Enter your username", required=True) }}
+        
+        <label for="password">{{ form.password.label }}</label>
+        {{ form.password(class="form-control", placeholder="Enter your password", required=True) }}
+
+        <!-- Add fields for name and billing address -->
+        <label for="name">{{ form.name.label }}</label>
+        {{ form.name(class="form-control", placeholder="Enter your name") }}
+
+        <label for="billing_address_id">{{ form.billing_address_id.label }}</label>
+        {{ form.billing_address_id(class="form-control", placeholder="Enter your billing address") }}
+        
         {{ form.submit }}
     </form>
 </body>
