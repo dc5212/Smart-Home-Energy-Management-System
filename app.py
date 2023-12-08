@@ -38,30 +38,45 @@ def index():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegistrationForm()
+    error_message = None
+
     if form.validate_on_submit():
         existing_user = User.query.filter_by(username=form.username.data).first()
         if existing_user:
-            return render_template('register.html', form=form, error="Username already exists. Please choose a different one.")
-        
-        new_user = User(username=form.username.data, password=form.password.data)
-        db.session.add(new_user)
-        db.session.commit()
+            # Provide an error message if the username already exists
+            error_message = "Username already exists. Please choose a different one."
+        else:
+            # If the username is unique, proceed with registration
+            new_user = User(username=form.username.data, password=form.password.data)
+            db.session.add(new_user)
+            db.session.commit()
 
-        # Set the user's session after successful registration
-        session['user_id'] = new_user.id
+            # Set the user's session after successful registration
+            session['user_id'] = new_user.id
 
-        return redirect(url_for('index'))
-    return render_template('register.html', form=form)
+            return redirect(url_for('index'))
+
+    return render_template('register.html', form=form, error_message=error_message)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
+    error_message = None
+
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data, password=form.password.data).first()
-        if user:
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.password == form.password.data:
+            # Set a session variable to indicate that the user is logged in
             session['user_id'] = user.id
             return redirect(url_for('index'))
-    return render_template('login.html', form=form, current_user=None)
+        else:
+            # Provide specific error messages
+            if not user:
+                error_message = "Invalid username. Please check your username and try again."
+            else:
+                error_message = "Invalid password. Please check your password and try again."
+
+    return render_template('login.html', form=form, current_user=None, error_message=error_message)
 
 @app.route('/logout')
 def logout():
