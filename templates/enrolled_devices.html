@@ -1,0 +1,20 @@
+<!-- Inside templates/enrolled_devices.html -->
+
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Enrolled Devices</h1>
+    {% if enrolled_devices %}
+        <ul>
+            {% for device in enrolled_devices %}
+                <li>
+                    {{ device.device_model.type }} - {{ device.device_model.model_number }}
+                    - <a href="{{ url_for('remove_enrolled_device', device_id=device.id) }}">Remove</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No devices enrolled.</p>
+    {% endif %}
+    <p><a href="{{ url_for('profile') }}">Back to Profile</a></p>
+{% endblock %}

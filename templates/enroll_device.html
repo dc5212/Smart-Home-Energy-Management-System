@@ -1,0 +1,18 @@
+<!-- Inside templates/enroll_device.html -->
+
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Enroll Device</h1>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        <div>
+            {{ form.device_type.label }}
+            {{ form.device_type(class="form-control") }}
+        </div>
+        <div>
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+    <p><a href="{{ url_for('profile') }}">Back to Profile</a></p>
+{% endblock %}

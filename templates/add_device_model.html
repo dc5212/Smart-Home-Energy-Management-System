@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Add Device Model</h2>
+  <form method="POST" action="{{ url_for('add_device_model') }}">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+      {{ form.type.label(class="form-control-label") }}
+      {{ form.type(class="form-control") }}
+      {% if form.type.errors %}
+        <small class="form-text text-danger">{{ form.type.errors[0] }}</small>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      {{ form.model_number.label(class="form-control-label") }}
+      {{ form.model_number(class="form-control") }}
+      {% if form.model_number.errors %}
+        <small class="form-text text-danger">{{ form.model_number.errors[0] }}</small>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      {{ form.submit(class="btn btn-primary") }}
+    </div>
+  </form>
+{% endblock %}

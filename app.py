@@ -1,10 +1,16 @@
-from flask import Flask, render_template, redirect, url_for, session
+from flask import Flask, flash, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField ,IntegerField, DateField
 from wtforms.validators import DataRequired, DataRequired, InputRequired
 from wtforms.fields import DateField
+from datetime import datetime
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField, IntegerField, DateField, SelectField
+from wtforms.validators import DataRequired, InputRequired
+
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
@@ -65,6 +71,54 @@ class EditProfileForm(FlaskForm):
     name = StringField('Name', validators=[InputRequired()])
     billing_address_id = StringField('Billing Address ID', validators=[InputRequired()])
     submit = SubmitField('Save Changes')
+
+class DeviceModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(50), nullable=False)
+    model_number = db.Column(db.String(50), nullable=False)
+    enrolled_devices = db.relationship('EnrolledDevice', backref='device_model', lazy=True)
+
+class EnrolledDevice(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    service_location_id = db.Column(db.Integer, db.ForeignKey('service_location.id'), nullable=False)
+    model_id = db.Column(db.Integer, db.ForeignKey('device_model.id'), nullable=False)
+    events = db.relationship('EventData', backref='enrolled_device', lazy=True)
+
+class EventData(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    device_id = db.Column(db.Integer, db.ForeignKey('enrolled_device.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    label_id = db.Column(db.Integer, db.ForeignKey('event_label.id'), nullable=False)
+    value = db.Column(db.Float, nullable=False)
+
+class EventLabel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    label_name = db.Column(db.String(50), nullable=False, unique=True)
+    events = db.relationship('EventData', backref='event_label', lazy=True)
+
+class Address(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    address = db.Column(db.String(255), nullable=False)
+    zip_code = db.Column(db.String(10), nullable=False)
+
+class EnergyPrice(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    zip_code = db.Column(db.String(10), db.ForeignKey('address.zip_code'), nullable=False)
+    hour = db.Column(db.Integer, nullable=False)
+    rate = db.Column(db.Float, nullable=False)
+
+class DeviceModelForm(FlaskForm):
+    type = StringField('Device Type', validators=[DataRequired()])
+    model_number = StringField('Model Number', validators=[DataRequired()])
+    submit = SubmitField('Add Device Model')
+
+class EnrolledDeviceForm(FlaskForm):
+    device_type = SelectField('Device Type', coerce=int, validators=[DataRequired()])
+    submit = SubmitField('Enroll Device')
+
+
+
+
 
 @app.route('/')
 def index():
@@ -200,6 +254,107 @@ def remove_service_location(location_id):
     db.session.delete(location)
     db.session.commit()
     return redirect(url_for('profile'))
+
+@app.route('/add_device_model', methods=['GET', 'POST'])
+def add_device_model():
+    form = DeviceModelForm()
+
+    if form.validate_on_submit():
+        new_device_model = DeviceModel(
+            type=form.type.data,
+            model_number=form.model_number.data
+        )
+        db.session.add(new_device_model)
+        db.session.commit()
+        return redirect(url_for('add_device_model'))
+
+    return render_template('add_device_model.html', form=form)
+
+@app.route('/add_device', methods=['GET', 'POST'])
+def add_device():
+    form = AddDeviceForm()
+
+    if form.validate_on_submit():
+        # Create a new device model if it doesn't exist
+        device_model = DeviceModel.query.filter_by(type=form.type.data, model_number=form.model_number.data).first()
+        if not device_model:
+            device_model = DeviceModel(type=form.type.data, model_number=form.model_number.data)
+            db.session.add(device_model)
+            db.session.commit()
+
+        # Create a new enrolled device
+        enrolled_device = EnrolledDevice(service_location_id=session['service_location_id'], device_model_id=device_model.id)
+        db.session.add(enrolled_device)
+        db.session.commit()
+        return redirect(url_for('enroll_device'))
+
+    return render_template('add_device.html', form=form)
+
+@app.route('/enroll_device', methods=['GET', 'POST'])
+def enroll_device():
+    form = EnrolledDeviceForm()
+
+    # Query all device models for the select field choices
+    form.device_type.choices = [(model.id, f"{model.type} - {model.model_number}") for model in DeviceModel.query.all()]
+
+    # Inside enroll_device route
+    # Inside enroll_device route
+    if form.validate_on_submit():
+        # Retrieve the selected device model
+        selected_device_model = DeviceModel.query.get(form.device_type.data)
+
+        # Get the user's service location if available
+        user = User.query.get(session['user_id'])
+        if user.service_locations:
+            service_location = user.service_locations[0]  # Assuming the user has only one service location
+
+            # Enroll the device with the selected model and user's service location
+            enrolled_device = EnrolledDevice(
+                service_location_id=service_location.id,
+                model_id=selected_device_model.id
+            )
+            db.session.add(enrolled_device)
+            db.session.commit()
+
+            # Redirect to the profile page after enrollment
+            return redirect(url_for('profile'))
+        else:
+            # Handle the case where the user has no service locations
+            flash("Please add a service location before enrolling a device.", 'warning')
+            return redirect(url_for('add_service_location'))
+
+
+
+    return render_template('enroll_device.html', form=form)
+
+@app.route('/enrolled_devices')
+def enrolled_devices():
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        if user.service_locations:
+            service_location = user.service_locations[0]  # Assuming the user has only one service location
+            enrolled_devices = EnrolledDevice.query.filter_by(service_location_id=service_location.id).all()
+            return render_template('enrolled_devices.html', user=user, enrolled_devices=enrolled_devices)
+        else:
+            flash("Please add a service location before viewing enrolled devices.", 'warning')
+            return redirect(url_for('add_service_location'))
+    else:
+        return redirect(url_for('login'))
+
+@app.route('/remove_enrolled_device/<int:device_id>')
+def remove_enrolled_device(device_id):
+    if 'user_id' in session:
+        enrolled_device = EnrolledDevice.query.get(device_id)
+        if enrolled_device:
+            db.session.delete(enrolled_device)
+            db.session.commit()
+            flash("Device removed successfully.", 'success')
+        else:
+            flash("Device not found.", 'danger')
+        return redirect(url_for('enrolled_devices'))
+    else:
+        return redirect(url_for('login'))
+
 
 
 
