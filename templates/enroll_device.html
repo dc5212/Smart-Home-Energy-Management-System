@@ -3,16 +3,23 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <h1>Enroll Device</h1>
-    <form method="post">
-        {{ form.hidden_tag() }}
-        <div>
-            {{ form.device_type.label }}
-            {{ form.device_type(class="form-control") }}
-        </div>
-        <div>
-            {{ form.submit(class="btn btn-primary") }}
-        </div>
-    </form>
-    <p><a href="{{ url_for('profile') }}">Back to Profile</a></p>
+    <div class="container mt-5">
+        <h1 class="mb-4">Enroll Device</h1>
+        <form method="post">
+            {{ form.hidden_tag() }}
+
+            <div class="form-group">
+                {{ form.device_type.label }}
+                {{ form.device_type(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.service_location.label }}
+                {{ form.service_location(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+        <p><a href="{{ url_for('profile') }}">Back to Profile</a></p>
+    </div>
 {% endblock %}

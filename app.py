@@ -12,6 +12,7 @@ from wtforms.validators import DataRequired, InputRequired
 
 
 
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 app.config['SECRET_KEY'] = 'your_secret_key'
@@ -83,6 +84,7 @@ class EnrolledDevice(db.Model):
     service_location_id = db.Column(db.Integer, db.ForeignKey('service_location.id'), nullable=False)
     model_id = db.Column(db.Integer, db.ForeignKey('device_model.id'), nullable=False)
     events = db.relationship('EventData', backref='enrolled_device', lazy=True)
+    service_location = db.relationship('ServiceLocation', backref='enrolled_devices')
 
 class EventData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -112,10 +114,10 @@ class DeviceModelForm(FlaskForm):
     model_number = StringField('Model Number', validators=[DataRequired()])
     submit = SubmitField('Add Device Model')
 
-class EnrolledDeviceForm(FlaskForm):
+class EnrollDeviceForm(FlaskForm):
     device_type = SelectField('Device Type', coerce=int, validators=[DataRequired()])
+    service_location = SelectField('Service Location', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Enroll Device')
-
 
 
 
@@ -292,38 +294,30 @@ def add_device():
 
 @app.route('/enroll_device', methods=['GET', 'POST'])
 def enroll_device():
-    form = EnrolledDeviceForm()
+    form = EnrollDeviceForm()
 
     # Query all device models for the select field choices
     form.device_type.choices = [(model.id, f"{model.type} - {model.model_number}") for model in DeviceModel.query.all()]
 
-    # Inside enroll_device route
-    # Inside enroll_device route
+    # Query all service locations for the select field choices
+    user_service_locations = ServiceLocation.query.filter_by(user_id=session['user_id']).all()
+    form.service_location.choices = [(location.id, location.address) for location in user_service_locations]
+
     if form.validate_on_submit():
-        # Retrieve the selected device model
+        # Retrieve the selected device model and service location
         selected_device_model = DeviceModel.query.get(form.device_type.data)
+        selected_service_location = ServiceLocation.query.get(form.service_location.data)
 
-        # Get the user's service location if available
-        user = User.query.get(session['user_id'])
-        if user.service_locations:
-            service_location = user.service_locations[0]  # Assuming the user has only one service location
+        # Enroll the device with the selected model and service location
+        enrolled_device = EnrolledDevice(
+            device_model=selected_device_model,
+            service_location=selected_service_location
+        )
+        db.session.add(enrolled_device)
+        db.session.commit()
 
-            # Enroll the device with the selected model and user's service location
-            enrolled_device = EnrolledDevice(
-                service_location_id=service_location.id,
-                model_id=selected_device_model.id
-            )
-            db.session.add(enrolled_device)
-            db.session.commit()
-
-            # Redirect to the profile page after enrollment
-            return redirect(url_for('profile'))
-        else:
-            # Handle the case where the user has no service locations
-            flash("Please add a service location before enrolling a device.", 'warning')
-            return redirect(url_for('add_service_location'))
-
-
+        # Redirect to the profile page after enrollment
+        return redirect(url_for('profile'))
 
     return render_template('enroll_device.html', form=form)
 
@@ -343,17 +337,14 @@ def enrolled_devices():
 
 @app.route('/remove_enrolled_device/<int:device_id>')
 def remove_enrolled_device(device_id):
-    if 'user_id' in session:
-        enrolled_device = EnrolledDevice.query.get(device_id)
-        if enrolled_device:
-            db.session.delete(enrolled_device)
-            db.session.commit()
-            flash("Device removed successfully.", 'success')
-        else:
-            flash("Device not found.", 'danger')
-        return redirect(url_for('enrolled_devices'))
-    else:
-        return redirect(url_for('login'))
+    enrolled_device = EnrolledDevice.query.get(device_id)
+    
+    if enrolled_device:
+        # Remove the enrolled device from the database
+        db.session.delete(enrolled_device)
+        db.session.commit()
+
+    return redirect(url_for('profile'))
 
 
 
