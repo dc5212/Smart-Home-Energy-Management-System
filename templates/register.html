@@ -91,6 +91,9 @@
         <label for="billing_address_id">{{ form.billing_address_id.label }}</label>
         {{ form.billing_address_id(class="form-control", placeholder="Enter your billing address") }}
 
+        <label for="zip_code">{{ form.zip_code.label }}</label>
+        {{ form.zip_code(class="form-control", placeholder="Enter your ZIP code", required=True) }}
+
         {{ form.submit }}
     </form>
 </body>

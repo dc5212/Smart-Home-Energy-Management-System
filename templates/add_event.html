@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Add Event</h2>
+  <form method="POST" action="{{ url_for('add_event', device_id=device_id) }}">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+      {{ form.timestamp.label(class="form-control-label") }}
+      {{ form.timestamp(class="form-control") }}
+      {% if form.timestamp.errors %}
+        <small class="form-text text-danger">{{ form.timestamp.errors[0] }}</small>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      {{ form.label_id.label(class="form-control-label") }}
+      {{ form.label_id(class="form-control") }}
+      {% if form.label_id.errors %}
+        <small class="form-text text-danger">{{ form.label_id.errors[0] }}</small>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      {{ form.value.label(class="form-control-label") }}
+      {{ form.value(class="form-control") }}
+      {% if form.value.errors %}
+        <small class="form-text text-danger">{{ form.value.errors[0] }}</small>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      {{ form.submit(class="btn btn-primary") }}
+    </div>
+  </form>
+{% endblock %}

@@ -2,7 +2,7 @@ from flask import Flask, flash, render_template, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField ,IntegerField, DateField
+from wtforms import FloatField, StringField, PasswordField, SubmitField ,IntegerField, DateField
 from wtforms.validators import DataRequired, DataRequired, InputRequired
 from wtforms.fields import DateField
 from datetime import datetime
@@ -26,13 +26,16 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=True)  # Add this line for the name field
     billing_address_id = db.Column(db.Integer, nullable=True)  # Add this line for the billing_address_id field
     service_locations = db.relationship('ServiceLocation', backref='user', lazy=True)
+    zip_code = db.Column(db.String(10), nullable=False)
 
 class RegistrationForm(FlaskForm):
     username = StringField('Username')
     password = PasswordField('Password')
     name = StringField('Name')  # Add this line for the name field
-    billing_address_id = StringField('Billing Address ID')  # Add this line for the billing_address_id field
+    billing_address_id = StringField('Billing Address ID')
+    zip_code = StringField('ZIP Code', validators=[DataRequired()])  # Add this line for the billing_address_id field
     submit = SubmitField('Register')
+    
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -108,6 +111,8 @@ class EnergyPrice(db.Model):
     zip_code = db.Column(db.String(10), db.ForeignKey('address.zip_code'), nullable=False)
     hour = db.Column(db.Integer, nullable=False)
     rate = db.Column(db.Float, nullable=False)
+    address = db.relationship('Address', backref='energy_prices', lazy=True)
+
 
 class DeviceModelForm(FlaskForm):
     type = StringField('Device Type', validators=[DataRequired()])
@@ -119,8 +124,21 @@ class EnrollDeviceForm(FlaskForm):
     service_location = SelectField('Service Location', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Enroll Device')
 
+class AddEventForm(FlaskForm):
+    timestamp = DateField('Timestamp', validators=[InputRequired()])
+    label_id = SelectField('Label', coerce=int, validators=[InputRequired()])
+    value = IntegerField('Value', validators=[InputRequired()])
+    submit = SubmitField('Add Event')
 
+class AddEventLabelForm(FlaskForm):
+    label_name = StringField('Event Label', validators=[DataRequired()])
+    submit = SubmitField('Add Label')
 
+class EnergyPriceForm(FlaskForm):
+    zip_code = StringField('Zip Code', validators=[DataRequired()])
+    hour = IntegerField('Hour', validators=[DataRequired()])
+    rate = FloatField('Rate', validators=[DataRequired()])
+    submit = SubmitField('Add Energy Price')
 
 @app.route('/')
 def index():
@@ -140,8 +158,20 @@ def register():
         if existing_user:
             error_message = "Username already exists. Please choose a different one."
         else:
-            new_user = User(username=form.username.data, password=form.password.data, name=form.name.data, billing_address_id=form.billing_address_id.data)
+            # Add the user to the database
+            new_user = User(
+                username=form.username.data,
+                password=form.password.data,
+                name=form.name.data,
+                billing_address_id=form.billing_address_id.data,
+                zip_code=form.zip_code.data
+            )
             db.session.add(new_user)
+            db.session.commit()
+
+            # Add the ZIP code to the Address table
+            new_address = Address(address=form.billing_address_id.data, zip_code=form.zip_code.data)
+            db.session.add(new_address)
             db.session.commit()
 
             # Set the user's session after successful registration
@@ -346,7 +376,57 @@ def remove_enrolled_device(device_id):
 
     return redirect(url_for('profile'))
 
+@app.route('/add_event/<int:device_id>', methods=['GET', 'POST'])
+def add_event(device_id):
+    form = AddEventForm()
+    event_labels = EventLabel.query.all()
 
+    # Pass event label choices to the form
+    form.label_id.choices = [(label.id, label.label_name) for label in event_labels]
+
+
+    if form.validate_on_submit():
+        new_event = EventData(
+            device_id=device_id,
+            timestamp=form.timestamp.data,
+            label_id=form.label_id.data,
+            value=form.value.data
+        )
+        db.session.add(new_event)
+        db.session.commit()
+        return redirect(url_for('add_event', device_id=device_id))
+
+    return render_template('add_event.html', form=form, device_id=device_id)
+
+@app.route('/add_event_label', methods=['GET', 'POST'])
+def add_event_label():
+    form = AddEventLabelForm()
+
+    if form.validate_on_submit():
+        new_label = EventLabel(label_name=form.label_name.data)
+        db.session.add(new_label)
+        db.session.commit()
+
+        # Optionally, you can redirect to another page after adding the label
+        return redirect(url_for('index'))
+
+    return render_template('add_event_label.html', form=form)
+
+@app.route('/add_energy_price', methods=['GET', 'POST'])
+def add_energy_price():
+    form = EnergyPriceForm()
+
+    if form.validate_on_submit():
+        new_energy_price = EnergyPrice(
+            zip_code=form.zip_code.data,
+            hour=form.hour.data,
+            rate=form.rate.data
+        )
+        db.session.add(new_energy_price)
+        db.session.commit()
+        return redirect(url_for('index'))
+
+    return render_template('add_energy_price.html', form=form)
 
 
 if __name__ == '__main__':
