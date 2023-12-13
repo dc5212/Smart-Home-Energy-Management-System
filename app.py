@@ -555,7 +555,17 @@ def energy_consumption(service_location_id, time_resolution):
         cur2 = con2.cursor()
         data = cur2.execute(query, (service_location_id,)).fetchall()
     elif time_resolution == 'week':
-        # Adjust the query for weekly data if needed
+        query = """
+            SELECT DATE(e.Timestamp) AS date, SUM(e.Value) AS total_energy
+            FROM event_data e
+            JOIN enrolled_device ed ON e.Device_ID = ed.id
+            WHERE ed.Service_Location_ID = :service_location_id
+            GROUP BY date
+        """
+        con2 = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur2 = con2.cursor()
+        data = cur2.execute(query, (service_location_id,)).fetchall()
+
         pass
     elif time_resolution == 'month':
         # Adjust the query for monthly data if needed
@@ -574,8 +584,8 @@ def energy_consumption(service_location_id, time_resolution):
         return "Invalid time resolution"
 
     # Extract data for the chart
-    labels = [str(row.date) for row in data]
-    values = [row.total_energy for row in data]
+    labels = [str(row[0]) for row in data]
+    values = [row[1] for row in data]
     con2.close()
     return render_template('energy_consumption.html', labels=labels, values=values, time_resolution=time_resolution)
 
@@ -596,9 +606,11 @@ def device_energy_consumption(service_location_id):
     data = cur2.execute(query, (service_location_id,)).fetchall()
     con2.close()
     # Extract data for the chart
-    model_ids = [row.ModelID for row in data]
-    device_counts = [row.device_count for row in data]
-    total_energies = [row.total_energy for row in data]
+    # Extract data for the chart
+    model_ids = [row[0] for row in data]
+    device_counts = [row[1] for row in data]
+    total_energies = [row[2] for row in data]
+
 
     return render_template('device_energy_consumption.html', model_ids=model_ids, device_counts=device_counts, total_energies=total_energies)
 
