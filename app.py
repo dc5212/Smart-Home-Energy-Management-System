@@ -4,8 +4,8 @@ from flask import Flask, flash, render_template, redirect, request, url_for, ses
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm
-from sqlalchemy import text
-from wtforms import FloatField, StringField, PasswordField, SubmitField ,IntegerField, DateField
+from sqlalchemy import DateTime, text
+from wtforms import DateTimeLocalField, FloatField, StringField, PasswordField, SubmitField ,IntegerField, DateField
 from wtforms.validators import DataRequired, DataRequired, InputRequired
 from wtforms.fields import DateField
 from datetime import datetime
@@ -112,7 +112,7 @@ class Address(db.Model):
 class EnergyPrice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     zip_code = db.Column(db.String(10), db.ForeignKey('address.zip_code'), nullable=False)
-    hour = db.Column(db.Integer, nullable=False)
+    hour = db.Column(DateTime, nullable=False)  # Change this line
     rate = db.Column(db.Float, nullable=False)
     address = db.relationship('Address', backref='energy_prices', lazy=True)
 
@@ -139,7 +139,7 @@ class AddEventLabelForm(FlaskForm):
 
 class EnergyPriceForm(FlaskForm):
     zip_code = StringField('Zip Code', validators=[DataRequired()])
-    hour = IntegerField('Hour', validators=[DataRequired()])
+    hour = DateTimeLocalField('Hour', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
     rate = FloatField('Rate', validators=[DataRequired()])
     submit = SubmitField('Add Energy Price')
 
@@ -236,10 +236,22 @@ def edit_profile():
         user = User.query.get(session['user_id'])
 
         if form.validate_on_submit():
-            # Update user profile information
-            user.name = form.name.data
-            user.billing_address_id = form.billing_address_id.data
-            db.session.commit()
+            # Update user profile information using insert queries
+            user_id = session['user_id']
+            name = form.name.data
+            billing_address_id = form.billing_address_id.data
+
+            con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+            cur = con.cursor()
+
+            # Update user profile
+            cur.execute(
+                "UPDATE User SET name = ?, billing_address_id = ? WHERE id = ?",
+                (name, billing_address_id, user_id),
+            )
+
+            con.commit()
+            con.close()
 
             return redirect(url_for('profile'))
 
@@ -257,16 +269,26 @@ def add_service_location():
     form = AddServiceLocationForm()
 
     if form.validate_on_submit():
-        new_location = ServiceLocation(
-            user_id=session['user_id'],
-            address=form.address.data,
-            unit_number=form.unit_number.data,
-            square_footage=form.square_footage.data,
-            bedrooms=form.bedrooms.data,
-            occupants=form.occupants.data
+        user_id = session['user_id']
+        address = form.address.data
+        unit_number = form.unit_number.data
+        square_footage = form.square_footage.data
+        bedrooms = form.bedrooms.data
+        occupants = form.occupants.data
+
+        con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur = con.cursor()
+
+        # Add new location using insert query
+        cur.execute(
+            "INSERT INTO Service_Location (user_id, address, unit_number, square_footage, bedrooms, occupants) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, address, unit_number, square_footage, bedrooms, occupants),
         )
-        db.session.add(new_location)
-        db.session.commit()
+
+        con.commit()
+        con.close()
+
         return redirect(url_for('profile'))
 
     return render_template('add_service_location.html', form=form)
@@ -277,12 +299,25 @@ def edit_service_location(location_id):
     location = ServiceLocation.query.get(location_id)
 
     if form.validate_on_submit():
-        location.address = form.address.data
-        location.unit_number = form.unit_number.data
-        location.square_footage = form.square_footage.data
-        location.bedrooms = form.bedrooms.data
-        location.occupants = form.occupants.data
-        db.session.commit()
+        address = form.address.data
+        unit_number = form.unit_number.data
+        square_footage = form.square_footage.data
+        bedrooms = form.bedrooms.data
+        occupants = form.occupants.data
+
+        con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur = con.cursor()
+
+        # Update service location using insert query
+        cur.execute(
+            "UPDATE Service_Location SET address = ?, unit_number = ?, square_footage = ?, bedrooms = ?, occupants = ? "
+            "WHERE id = ?",
+            (address, unit_number, square_footage, bedrooms, occupants, location_id),
+        )
+
+        con.commit()
+        con.close()
+
         return redirect(url_for('profile'))
 
     # Pre-fill the form with existing service location details
@@ -306,12 +341,21 @@ def add_device_model():
     form = DeviceModelForm()
 
     if form.validate_on_submit():
-        new_device_model = DeviceModel(
-            type=form.type.data,
-            model_number=form.model_number.data
+        device_type = form.type.data
+        model_number = form.model_number.data
+
+        con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur = con.cursor()
+
+        # Add new device model using insert query
+        cur.execute(
+            "INSERT INTO DeviceModel (type, model_number) VALUES (?, ?)",
+            (device_type, model_number),
         )
-        db.session.add(new_device_model)
-        db.session.commit()
+
+        con.commit()
+        con.close()
+
         return redirect(url_for('add_device_model'))
 
     return render_template('add_device_model.html', form=form)
@@ -341,24 +385,37 @@ def enroll_device():
     form = EnrollDeviceForm()
 
     # Query all device models for the select field choices
-    form.device_type.choices = [(model.id, f"{model.type} - {model.model_number}") for model in DeviceModel.query.all()]
+    con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur = con.cursor()
+    cur.execute("SELECT id, type, model_number FROM Device_Model")
+    device_models = cur.fetchall()
+    con.close()
+    form.device_type.choices = [(model[0], f"{model[1]} - {model[2]}") for model in device_models]
 
     # Query all service locations for the select field choices
-    user_service_locations = ServiceLocation.query.filter_by(user_id=session['user_id']).all()
-    form.service_location.choices = [(location.id, location.address) for location in user_service_locations]
+    user_id = session['user_id']
+    con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur = con.cursor()
+    cur.execute("SELECT id, address FROM Service_Location WHERE user_id = ?", (user_id,))
+    service_locations = cur.fetchall()
+    con.close()
+    form.service_location.choices = [(location[0], location[1]) for location in service_locations]
 
     if form.validate_on_submit():
-        # Retrieve the selected device model and service location
-        selected_device_model = DeviceModel.query.get(form.device_type.data)
-        selected_service_location = ServiceLocation.query.get(form.service_location.data)
+        device_type_id = form.device_type.data
+        service_location_id = form.service_location.data
 
-        # Enroll the device with the selected model and service location
-        enrolled_device = EnrolledDevice(
-            device_model=selected_device_model,
-            service_location=selected_service_location
+        con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur = con.cursor()
+
+        # Enroll the device with the selected model and service location using insert query
+        cur.execute(
+            "INSERT INTO Enrolled_Device (service_location_id, model_id) VALUES (?, ?)",
+            (service_location_id, device_type_id),
         )
-        db.session.add(enrolled_device)
-        db.session.commit()
+
+        con.commit()
+        con.close()
 
         # Redirect to the profile page after enrollment
         return redirect(url_for('profile'))
@@ -368,11 +425,31 @@ def enroll_device():
 @app.route('/enrolled_devices')
 def enrolled_devices():
     if 'user_id' in session:
-        user = User.query.get(session['user_id'])
-        if user.service_locations:
-            service_location = user.service_locations[0]  # Assuming the user has only one service location
-            enrolled_devices = EnrolledDevice.query.filter_by(service_location_id=service_location.id).all()
-            return render_template('enrolled_devices.html', user=user, enrolled_devices=enrolled_devices)
+        user_id = session['user_id']
+
+        con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur = con.cursor()
+
+        # Retrieve the user's service location ID
+        cur.execute("SELECT id FROM ServiceLocation WHERE user_id = ? LIMIT 1", (user_id,))
+        service_location_id = cur.fetchone()
+
+        if service_location_id:
+            service_location_id = service_location_id[0]
+            # Fetch enrolled devices using raw query
+            cur.execute("SELECT * FROM EnrolledDevice WHERE service_location_id = ?", (service_location_id,))
+            enrolled_devices = cur.fetchall()
+
+            # Fetch device models for displaying information
+            devices_info = []
+            for device in enrolled_devices:
+                device_id = device[0]
+                model_info = cur.execute("SELECT type, model_number FROM DeviceModel WHERE id = ?", (device[3],)).fetchone()
+                devices_info.append({'id': device_id, 'type': model_info[0], 'model_number': model_info[1]})
+
+            con.close()
+
+            return render_template('enrolled_devices.html', user=user, devices_info=devices_info)
         else:
             flash("Please add a service location before viewing enrolled devices.", 'warning')
             return redirect(url_for('add_service_location'))
@@ -393,21 +470,26 @@ def remove_enrolled_device(device_id):
 @app.route('/add_event/<int:device_id>', methods=['GET', 'POST'])
 def add_event(device_id):
     form = AddEventForm()
-    event_labels = EventLabel.query.all()
+
+    con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur = con.cursor()
+
+    # Fetch event labels for dropdown choices
+    cur.execute("SELECT id, label_name FROM Event_Label")
+    event_labels = cur.fetchall()
 
     # Pass event label choices to the form
-    form.label_id.choices = [(label.id, label.label_name) for label in event_labels]
-
+    form.label_id.choices = [(label[0], label[1]) for label in event_labels]
 
     if form.validate_on_submit():
-        new_event = EventData(
-            device_id=device_id,
-            timestamp=form.timestamp.data,
-            label_id=form.label_id.data,
-            value=form.value.data
+        # Insert new event using raw query
+        cur.execute(
+            "INSERT INTO Event_Data (device_id, timestamp, label_id, value) VALUES (?, ?, ?, ?)",
+            (device_id, form.timestamp.data, form.label_id.data, form.value.data)
         )
-        db.session.add(new_event)
-        db.session.commit()
+        con.commit()
+        con.close()
+
         return redirect(url_for('add_event', device_id=device_id))
 
     return render_template('add_event.html', form=form, device_id=device_id)
@@ -416,10 +498,14 @@ def add_event(device_id):
 def add_event_label():
     form = AddEventLabelForm()
 
+    con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur = con.cursor()
+
     if form.validate_on_submit():
-        new_label = EventLabel(label_name=form.label_name.data)
-        db.session.add(new_label)
-        db.session.commit()
+        # Insert new event label using raw query
+        cur.execute("INSERT INTO Event_Label (label_name) VALUES (?)", (form.label_name.data,))
+        con.commit()
+        con.close()
 
         # Optionally, you can redirect to another page after adding the label
         return redirect(url_for('index'))
@@ -430,14 +516,23 @@ def add_event_label():
 def add_energy_price():
     form = EnergyPriceForm()
 
+    con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur = con.cursor()
+
     if form.validate_on_submit():
-        new_energy_price = EnergyPrice(
-            zip_code=form.zip_code.data,
-            hour=form.hour.data,
-            rate=form.rate.data
+        # Check if form.hour.data is already a datetime object
+        if not isinstance(form.hour.data, datetime):
+            # Convert the string input to a datetime object
+            form.hour.data = datetime.strptime(form.hour.data, '%Y-%m-%dT%H:%M')
+
+        # Insert new energy price using raw query
+        cur.execute(
+            "INSERT INTO Energy_Price (zip_code, hour, rate) VALUES (?, ?, ?)",
+            (form.zip_code.data, form.hour.data, form.rate.data)
         )
-        db.session.add(new_energy_price)
-        db.session.commit()
+        con.commit()
+        con.close()
+
         return redirect(url_for('index'))
 
     return render_template('add_energy_price.html', form=form)
