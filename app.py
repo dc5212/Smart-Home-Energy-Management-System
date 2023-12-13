@@ -1,5 +1,6 @@
 #Changing commit message
-from flask import Flask, flash, render_template, redirect, url_for, session
+import sqlite3
+from flask import Flask, flash, render_template, redirect, request, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm
@@ -160,21 +161,32 @@ def register():
             error_message = "Username already exists. Please choose a different one."
         else:
             # Add the user to the database
-            new_user = User(
-                username=form.username.data,
-                password=form.password.data,
-                name=form.name.data,
-                billing_address_id=form.billing_address_id.data,
-                zip_code=form.zip_code.data
+            username = request.form.get("username")
+            password = request.form.get("password")
+            name = request.form.get("name")
+            billing_address_id = request.form.get("billing_address_id")
+            zip_code = request.form.get("zip_code")
+
+            con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+            cur = con.cursor()
+
+            # User creation
+            cur.execute(
+                "INSERT INTO User (username, password, name, billing_address_id, zip_code) VALUES (?, ?, ?, ?, ?)",
+                (username, password, name, billing_address_id, zip_code),
             )
-            db.session.add(new_user)
-            db.session.commit()
 
-            # Add the ZIP code to the Address table
-            new_address = Address(address=form.billing_address_id.data, zip_code=form.zip_code.data)
-            db.session.add(new_address)
-            db.session.commit()
+            # Address addition
+            cur.execute(
+                "INSERT INTO Address (address, zip_code) VALUES (?, ?)",
+                (billing_address_id, zip_code),
+            )
 
+            con.commit()
+            new_user = User.query.filter_by(username=username).first()
+
+            con.close()
+            
             # Set the user's session after successful registration
             session['user_id'] = new_user.id
 
