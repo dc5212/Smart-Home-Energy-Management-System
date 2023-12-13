@@ -128,7 +128,7 @@ class EnrollDeviceForm(FlaskForm):
     submit = SubmitField('Enroll Device')
 
 class AddEventForm(FlaskForm):
-    timestamp = DateField('Timestamp', validators=[InputRequired()])
+    timestamp = DateTimeLocalField('Timestamp', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
     label_id = SelectField('Label', coerce=int, validators=[InputRequired()])
     value = IntegerField('Value', validators=[InputRequired()])
     submit = SubmitField('Add Event')
@@ -483,6 +483,9 @@ def add_event(device_id):
 
     if form.validate_on_submit():
         # Insert new event using raw query
+        if not isinstance(form.timestamp.data, datetime):
+            # Convert the string input to a datetime object
+            form.timestamp.data = datetime.strptime(form.timestamp.data, '%Y-%m-%dT%H:%M')
         cur.execute(
             "INSERT INTO Event_Data (device_id, timestamp, label_id, value) VALUES (?, ?, ?, ?)",
             (device_id, form.timestamp.data, form.label_id.data, form.value.data)
