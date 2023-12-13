@@ -4,6 +4,7 @@ from flask import Flask, flash, render_template, redirect, request, url_for, ses
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm
+from sqlalchemy import text
 from wtforms import FloatField, StringField, PasswordField, SubmitField ,IntegerField, DateField
 from wtforms.validators import DataRequired, DataRequired, InputRequired
 from wtforms.fields import DateField
@@ -440,6 +441,151 @@ def add_energy_price():
         return redirect(url_for('index'))
 
     return render_template('add_energy_price.html', form=form)
+
+@app.route('/energy_consumption/<int:service_location_id>/<string:time_resolution>')
+def energy_consumption(service_location_id, time_resolution):
+    # Fetch daily energy consumption data based on the selected time resolution
+    if time_resolution == 'day':
+        query = """
+            SELECT DATE(e.Timestamp) AS date, SUM(e.Value) AS total_energy
+            FROM event_data e
+            JOIN enrolled_device ed ON e.Device_ID = ed.id
+            WHERE ed.Service_Location_ID = :service_location_id
+            GROUP BY date
+        """
+        con2 = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur2 = con2.cursor()
+        data = cur2.execute(query, (service_location_id,)).fetchall()
+    elif time_resolution == 'week':
+        # Adjust the query for weekly data if needed
+        pass
+    elif time_resolution == 'month':
+        # Adjust the query for monthly data if needed
+        query = """
+            SELECT strftime('%m', e.Timestamp) AS month, SUM(e.Value) AS total_energy
+            FROM event_data e
+            JOIN enrolled_device ed ON e.Device_ID = ed.id
+            WHERE ed.Service_Location_ID = :service_location_id
+            GROUP BY month
+        """
+        con2 = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+        cur2 = con2.cursor()
+        data = cur2.execute(query, (service_location_id,)).fetchall()
+        pass
+    else:
+        return "Invalid time resolution"
+
+    # Extract data for the chart
+    labels = [str(row.date) for row in data]
+    values = [row.total_energy for row in data]
+    con2.close()
+    return render_template('energy_consumption.html', labels=labels, values=values, time_resolution=time_resolution)
+
+@app.route('/device_energy_consumption/<int:service_location_id>')
+def device_energy_consumption(service_location_id):
+    # Fetch energy consumption per device for the last month
+    query = """
+        SELECT d.id, COUNT(ed.id) AS device_count, SUM(e.Value) AS total_energy
+        FROM Event_Data e
+        JOIN Enrolled_Device ed ON e.Device_ID = ed.id
+        JOIN Device_Model d ON ed.Model_ID = d.id
+        WHERE ed.Service_Location_ID = :service_location_id
+        AND e.Timestamp >= DATE('now', '-1 month')
+        GROUP BY d.id
+    """
+    con2 = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur2 = con2.cursor()
+    data = cur2.execute(query, (service_location_id,)).fetchall()
+    con2.close()
+    # Extract data for the chart
+    model_ids = [row.ModelID for row in data]
+    device_counts = [row.device_count for row in data]
+    total_energies = [row.total_energy for row in data]
+
+    return render_template('device_energy_consumption.html', model_ids=model_ids, device_counts=device_counts, total_energies=total_energies)
+
+
+@app.route('/monthly_energy_cost/<int:service_location_id>')
+def monthly_energy_cost(service_location_id):
+    # Fetch data for the line graph of monthly cost of electricity
+    query = """
+        SELECT strftime('%Y-%m', ED.Timestamp) AS month, SUM(ED.Value * EP.Rate) AS total_energy_cost
+        FROM Event_Data ED
+        JOIN Enrolled_Device EN ON ED.device_id = EN.id
+        JOIN Service_Location SL ON EN.Service_Location_ID = SL.id
+        JOIN Address A ON SL.address = A.address
+        JOIN Energy_Price EP ON A.Zip_Code = EP.Zip_Code AND ED.Timestamp BETWEEN EP.Hour AND datetime(EP.Hour, '+1 hour')
+        WHERE ED.Label_ID = (SELECT Label_ID FROM Event_Label WHERE Label_Name = 'energy use') 
+        AND SL.id= :service_location_id
+        GROUP BY month
+    """
+    con3 = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur3 = con3.cursor()
+    data = cur3.execute(query, (service_location_id,)).fetchall()
+    con3.close()
+
+    # Extract data for the line graph
+    months = [row.month for row in data]
+    total_energy_costs = [row.total_energy_cost for row in data]
+
+    return render_template('monthly_energy_cost.html', months=months, total_energy_costs=total_energy_costs)
+
+@app.route('/average_usage_consumption/<int:service_location_id>/<string:month>/<string:year>')
+def average_usage_consumption(service_location_id,month,year):
+    # Fetch data for the average usage consumption
+    query = """
+        WITH MonthlyEnergy AS (
+            SELECT
+                SL.id AS ServiceLocationID,
+                SUM(ED.Value) AS TotalEnergyConsumption
+            FROM
+                Event_Data ED
+            JOIN
+                Enrolled_Device EN ON ED.Device_ID = EN.id
+            JOIN
+                Service_Location SL ON EN.Service_Location_ID = SL.id
+            WHERE
+                strftime('%m', ED.Timestamp) = :month AND strftime('%Y', ED.Timestamp) = :year
+                AND ED.id = (SELECT id FROM Event_Label WHERE Label_Name = 'energy use')
+            GROUP BY
+                SL.id
+        ),
+        SimilarSquareFootage AS (
+            SELECT
+                SL1.id AS ServiceLocationID,
+                ROUND(0.95 * SL1.Square_Footage, 0) AS LowerSquareFootage,
+                ROUND(1.05 * SL1.Square_Footage, 0) AS UpperSquareFootage
+            FROM
+                Service_Location SL1
+        )
+        SELECT
+            SL.id,
+            SL.Square_Footage,
+            (ME.TotalEnergyConsumption / AVG(ME.TotalEnergyConsumption) OVER ()) * 100 AS EnergyConsumptionPercentage
+        FROM
+            Service_Location SL
+        JOIN
+            MonthlyEnergy ME ON SL.id = ME.ServiceLocationID
+        JOIN
+            SimilarSquareFootage SSF ON SL.id = SSF.ServiceLocationID
+        WHERE
+            SL.Square_Footage BETWEEN SSF.LowerSquareFootage AND SSF.UpperSquareFootage
+        And SL.id= :service_location_id
+    """
+    con3 = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
+    cur3 = con3.cursor()
+    data = cur3.execute(query, (service_location_id, month, year)).fetchall()
+    con3.close()
+
+    # Extract data for the plot
+    service_location_ids = [row.ServiceLocationID for row in data]
+    square_footages = [row.SquareFootage for row in data]
+    consumption_percentages = [row.EnergyConsumptionPercentage for row in data]
+
+    return render_template('average_usage_consumption.html', service_location_ids=service_location_ids,
+                           square_footages=square_footages, consumption_percentages=consumption_percentages)
+
+
 
 
 if __name__ == '__main__':
