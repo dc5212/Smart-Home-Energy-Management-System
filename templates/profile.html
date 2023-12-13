@@ -43,7 +43,6 @@
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             Device: {{ enrolled_device.device_model.type }} - {{ enrolled_device.device_model.model_number }}
                                             <span>
-                                                <a href="#" class="btn btn-info btn-sm mr-2">View Details</a>
                                                 <a href="{{ url_for('remove_enrolled_device', device_id=enrolled_device.id) }}" class="btn btn-danger btn-sm">Remove</a>
                                             </span>
                                         </li>
