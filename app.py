@@ -12,6 +12,7 @@ from datetime import datetime
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, IntegerField, DateField, SelectField
 from wtforms.validators import DataRequired, InputRequired
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
@@ -167,6 +168,7 @@ def register():
             name = form.name.data
             billing_address_id = form.billing_address_id.data
             zip_code = form.zip_code.data
+            password=generate_password_hash(form.password.data, method='pbkdf2:sha256')
 
 
             con = sqlite3.connect("C:\\Smart-Home-Energy-Management-System\\instance\\site.db")
@@ -203,7 +205,7 @@ def login():
 
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        if user and user.password == form.password.data:
+        if user and (user.password == form.password.data or check_password_hash(user.password, form.password.data)):
             # Set a session variable to indicate that the user is logged in
             session['user_id'] = user.id
             return redirect(url_for('index'))
