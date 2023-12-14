@@ -225,7 +225,11 @@ def logout():
 def profile():
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
-        return render_template('profile.html', user=user)
+
+        all_zip_codes = db.session.query(EnergyPrice.zip_code).distinct().all()
+        all_zip_codes = [zip_code[0] for zip_code in all_zip_codes]
+
+        return render_template('profile.html', user=user, all_zip_codes=all_zip_codes)
     else:
         return redirect(url_for('login'))
 
@@ -613,9 +617,10 @@ def monthly_energy_cost(service_location_id):
 
     return render_template('monthly_energy_cost.html', months=months, total_energy_costs=total_energy_costs)
 
-@app.route('/energy_price_zipcode/<int:zip_code>')
-def energy_price_zipcode(zip_code):
+@app.route('/energy_price_zipcode')
+def energy_price_zipcode():
     # Fetch data for the average usage consumption
+    zip_code = request.args.get('zip_code')
     query = """
         Select hour,rate from energy_price where zip_code=:zip_code
     """
