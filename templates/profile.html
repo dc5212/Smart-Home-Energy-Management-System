@@ -11,6 +11,20 @@
                 <p class="mb-4">Name: {{ user.name }}</p>
                 <p class="mb-4">Billing Address ID: {{ user.billing_address_id }}</p>
 
+
+                <h3>Check Energy Pricing by ZIP Code</h3>
+                <form method="GET" action="{{ url_for('energy_price_zipcode') }}">
+                    <div class="form-group">
+                        <label for="zipCodeDropdown">Select ZIP Code:</label>
+                        <select class="form-control" id="zipCodeDropdown" name="zip_code">
+                            {% for zip_code in all_zip_codes %}
+                                <option value="{{ zip_code }}">{{ zip_code }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </form>
+
                 <h3>Service Locations</h3>
                 {% if user.service_locations %}
                     <ul class="list-group mb-4">
@@ -20,6 +34,8 @@
                                 <span>
                                     <a href="{{ url_for('edit_service_location', location_id=service_location.id) }}" class="btn btn-info btn-sm mr-2">Edit</a>
                                     <a href="{{ url_for('remove_service_location', location_id=service_location.id) }}" class="btn btn-danger btn-sm">Remove</a>
+                                    <a href="{{ url_for('device_energy_consumption', service_location_id=service_location.id) }}" class="btn btn-warning btn-sm mr-2">Device Energy Consumption</a>
+                                    <a href="{{ url_for('monthly_energy_cost', service_location_id=service_location.id) }}" class="btn btn-warning btn-sm mr-2">Monthly Energy Cost</a>
                                 </span>
                             </li>
                         {% endfor %}
@@ -27,6 +43,22 @@
                 {% else %}
                     <p>No service locations found.</p>
                 {% endif %}
+
+
+                <h3>Energy Consumption</h3>
+                {% if user.service_locations %}
+                    {% for service_location in user.service_locations %}
+                        <div class="mb-3">
+                            <h5>{{ service_location.address }}</h5>
+                            <a href="{{ url_for('energy_consumption', service_location_id=service_location.id, time_resolution='day') }}" class="btn btn-info mr-2">Day</a>
+                            <a href="{{ url_for('energy_consumption', service_location_id=service_location.id, time_resolution='month') }}" class="btn btn-info mr-2">Month</a>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No service locations found.</p>
+                {% endif %}
+
+                
 
                 <!-- Inside templates/profile.html -->
 
@@ -43,7 +75,6 @@
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             Device: {{ enrolled_device.device_model.type }} - {{ enrolled_device.device_model.model_number }}
                                             <span>
-                                                <a href="#" class="btn btn-info btn-sm mr-2">View Details</a>
                                                 <a href="{{ url_for('remove_enrolled_device', device_id=enrolled_device.id) }}" class="btn btn-danger btn-sm">Remove</a>
                                             </span>
                                         </li>
@@ -57,6 +88,8 @@
                 {% else %}
                     <p>No service locations found.</p>
                 {% endif %}
+
+                
 
                 <!-- ... -->
 

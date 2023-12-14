@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Consumption</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Energy Consumption</h1>
+    <canvas id="energyChart" width="400" height="200"></canvas>
+
+    <script>
+        var ctx = document.getElementById('energyChart').getContext('2d');
+        var myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ labels|tojson|safe }},
+                datasets: [{
+                    label: 'Energy Consumption',
+                    data: {{ values|tojson|safe }},
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: [{
+                        type: 'time',
+                        time: {
+                            unit: '{{ time_resolution }}'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    }],
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Energy Consumption(Watts)'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
