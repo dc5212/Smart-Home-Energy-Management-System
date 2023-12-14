@@ -21,6 +21,7 @@
                                     <a href="{{ url_for('edit_service_location', location_id=service_location.id) }}" class="btn btn-info btn-sm mr-2">Edit</a>
                                     <a href="{{ url_for('remove_service_location', location_id=service_location.id) }}" class="btn btn-danger btn-sm">Remove</a>
                                     <a href="{{ url_for('device_energy_consumption', service_location_id=service_location.id) }}" class="btn btn-warning btn-sm mr-2">Device Energy Consumption</a>
+                                    <a href="{{ url_for('monthly_energy_cost', service_location_id=service_location.id) }}" class="btn btn-warning btn-sm mr-2">Monthly Energy Cost</a>
                                 </span>
                             </li>
                         {% endfor %}
@@ -36,7 +37,6 @@
                         <div class="mb-3">
                             <h5>{{ service_location.address }}</h5>
                             <a href="{{ url_for('energy_consumption', service_location_id=service_location.id, time_resolution='day') }}" class="btn btn-info mr-2">Day</a>
-                            <a href="{{ url_for('energy_consumption', service_location_id=service_location.id, time_resolution='week') }}" class="btn btn-info mr-2">Week</a>
                             <a href="{{ url_for('energy_consumption', service_location_id=service_location.id, time_resolution='month') }}" class="btn btn-info mr-2">Month</a>
                         </div>
                     {% endfor %}
